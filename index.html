@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR WebXR App</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        #startAR {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 10;
+        }
+        #message {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            font-size: 14px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <button id="startAR">Iniciar AR</button>
+    <div id="message">Una vez iniciado, mueve tu dispositivo para detectar superficies</div>
+
+    <!-- Importando Three.js desde CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Variables globales
+        let container;
+        let camera, scene, renderer;
+        let controller;
+        let reticle;
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+        let cube = null;
+
+        // Elementos DOM
+        const startARButton = document.getElementById('startAR');
+        const messageElement = document.getElementById('message');
+
+        // Inicializar solo cuando se hace clic en el botón
+        startARButton.addEventListener('click', initialize);
+
+        function initialize() {
+            if (!navigator.xr) {
+                showMessage('WebXR no es compatible con este navegador');
+                return;
+            }
+
+            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                if (supported) {
+                    startARButton.addEventListener('click', onStartAR);
+                    startARButton.textContent = 'Entrar en AR';
+                    startARButton.disabled = false;
+                    
+                    // Inicializar la escena de Three.js
+                    init();
+                } else {
+                    showMessage('La Realidad Aumentada no es compatible con este dispositivo');
+                }
+            });
+        }
+
+        function init() {
+            container = document.getElementById('container');
+
+            // Crear escena
+            scene = new THREE.Scene();
+
+            // Configurar cámara
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+            // Configurar iluminación
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            light.position.set(0.5, 1, 0.25);
+            scene.add(light);
+
+            // Configurar el renderizador
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Crear el reticle (indicador de superficie)
+            reticle = new THREE.Mesh(
+                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
+                new THREE.MeshBasicMaterial()
+            );
+            reticle.matrixAutoUpdate = false;
+            reticle.visible = false;
+            scene.add(reticle);
+
+            // Ajustar tamaño al cambiar la ventana
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onStartAR() {
+            // Configuración de la sesión AR
+            const sessionInit = {
+                requiredFeatures: ['hit-test']
+            };
+
+            // Solicitar una sesión AR
+            navigator.xr.requestSession('immersive-ar', sessionInit)
+                .then(onSessionStarted)
+                .catch(error => {
+                    showMessage('Error al iniciar la sesión AR: ' + error.message);
+                });
+        }
+
+        function onSessionStarted(session) {
+            startARButton.style.display = 'none';
+            
+            // Configurar la sesión AR con el renderizador
+            renderer.xr.setReferenceSpaceType('local');
+            renderer.xr.setSession(session);
+            
+            // Establecer eventos de la sesión
+            session.addEventListener('end', onSessionEnded);
+            
+            // Iniciar el bucle de renderizado
+            animate();
+            
+            // Configuración para la detección de superficies
+            session.requestReferenceSpace('viewer').then(referenceSpace => {
+                session.requestHitTestSource({ space: referenceSpace }).then(source => {
+                    hitTestSource = source;
+                });
+            });
+
+            session.addEventListener('select', onSelect);
+        }
+
+        function onSessionEnded() {
+            hitTestSource = null;
+            hitTestSourceRequested = false;
+            startARButton.style.display = 'block';
+            showMessage('Sesión AR finalizada');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function showMessage(text) {
+            messageElement.textContent = text;
+        }
+
+        function onSelect() {
+            if (reticle.visible) {
+                // Crear un cubo en la posición del reticle
+                const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+                const material = new THREE.MeshStandardMaterial({
+                    color: 0x00FF00,
+                    roughness: 0.7,
+                    metalness: 0.3
+                });
+                
+                cube = new THREE.Mesh(geometry, material);
+                
+                // Posicionar el cubo donde está el reticle
+                cube.position.setFromMatrixPosition(reticle.matrix);
+                
+                // Añadir una animación simple de rotación
+                cube.userData.animating = true;
+                
+                scene.add(cube);
+                
+                showMessage('¡Cubo colocado! Pulsa de nuevo para colocar otro.');
+            }
+        }
+
+        function animate() {
+            renderer.setAnimationLoop(render);
+        }
+
+        function render(timestamp, frame) {
+            if (frame) {
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
+
+                if (hitTestSourceRequested === false) {
+                    session.requestReferenceSpace('viewer').then(function(referenceSpace) {
+                        session.requestHitTestSource({ space: referenceSpace }).then(function(source) {
+                            hitTestSource = source;
+                        });
+                    });
+                    hitTestSourceRequested = true;
+                }
+
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+                    
+                    if (hitTestResults.length > 0) {
+                        const hit = hitTestResults[0];
+                        const pose = hit.getPose(referenceSpace);
+                        
+                        reticle.visible = true;
+                        reticle.matrix.fromArray(pose.transform.matrix);
+                        
+                        // Mostramos mensaje de ayuda al usuario
+                        showMessage('Superficie detectada. Pulsa para colocar un cubo.');
+                    } else {
+                        reticle.visible = false;
+                        showMessage('Mueve despacio el dispositivo para detectar superficies.');
+                    }
+                }
+            }
+
+            // Animar cualquier cubo que hayamos colocado
+            scene.children.forEach(object => {
+                if (object.userData.animating) {
+                    object.rotation.x += 0.01;
+                    object.rotation.y += 0.02;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
