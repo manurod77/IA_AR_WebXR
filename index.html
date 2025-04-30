@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR WebXR App - Modelo Personalizado</title>
+    <title>WebXR AR - Modelos 3D</title>
     <style>
         body {
             margin: 0;
@@ -12,246 +12,555 @@
             font-family: Arial, sans-serif;
         }
         #container {
-            position: absolute;
+            position: fixed;
             width: 100%;
             height: 100%;
         }
-        #startAR {
-            position: absolute;
-            bottom: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 24px;
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            cursor: pointer;
-            z-index: 10;
-        }
-        #uploadModel {
+        #ui {
             position: absolute;
             bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 24px;
-            background-color: #34a853;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 100;
+        }
+        button {
+            padding: 12px 20px;
+            margin: 8px;
+            background-color: rgba(0, 123, 255, 0.8);
             color: white;
             border: none;
             border-radius: 4px;
             font-size: 16px;
             cursor: pointer;
-            z-index: 10;
         }
-        #fileInput {
-            position: absolute;
-            left: -9999px;
-            opacity: 0;
-            visibility: hidden;
+        button:disabled {
+            background-color: rgba(108, 117, 125, 0.8);
         }
-        #message {
-            position: absolute;
-            top: 20px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            color: white;
-            background-color: rgba(0, 0, 0, 0.5);
+        .control-panel {
+            background-color: rgba(255, 255, 255, 0.8);
             padding: 10px;
-            font-size: 14px;
-            z-index: 10;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            width: 90%;
+            max-width: 400px;
+            display: none;
+        }
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .control-label {
+            font-weight: bold;
+            width: 100px;
+        }
+        .control-input {
+            flex-grow: 1;
+        }
+        .model-selector {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .model-option {
+            padding: 8px 12px;
+            margin: 4px;
+            background-color: rgba(0, 123, 255, 0.6);
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .model-option.active {
+            background-color: rgba(0, 123, 255, 1);
+            font-weight: bold;
+        }
+        .file-input-container {
+            margin-top: 10px;
+            text-align: center;
+        }
+        #file-upload {
+            display: none;
+        }
+        .file-input-label {
+            display: inline-block;
+            padding: 8px 12px;
+            background-color: rgba(40, 167, 69, 0.8);
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        #file-name {
+            font-size: 12px;
+            color: #333;
+            margin-top: 5px;
+        }
+        .status-message {
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <div id="container"></div>
-    <input type="file" id="fileInput" accept=".glb,.gltf">
-    <button id="uploadModel">Cargar Modelo 3D</button>
-    <button id="startAR">Iniciar AR</button>
-    <div id="message">Pulsa "Cargar Modelo 3D" primero</div>
+    
+    <div id="ui">
+        <div id="status-message" class="status-message">Esperando iniciar AR...</div>
+        
+        <div id="control-panel" class="control-panel">
+            <div class="model-selector">
+                <div class="model-option active" data-model="cube">Cubo</div>
+                <div class="model-option" data-model="sphere">Esfera</div>
+                <div class="model-option" data-model="torus">Toroide</div>
+                <div class="model-option" data-model="custom">Modelo Personalizado</div>
+            </div>
+            
+            <div class="file-input-container">
+                <label for="file-upload" class="file-input-label">Cargar Modelo 3D (GLB/GLTF)</label>
+                <input type="file" id="file-upload" accept=".glb,.gltf">
+                <div id="file-name">Ningún archivo seleccionado</div>
+                <div id="model-status"></div>
+            </div>
+            
+            <div class="control-row">
+                <span class="control-label">Escala:</span>
+                <input type="range" id="scale-slider" min="0.5" max="3" step="0.1" value="1" class="control-input">
+                <span id="scale-value">1.0</span>
+            </div>
+            
+            <div class="control-row">
+                <span class="control-label">Rotación X:</span>
+                <input type="range" id="rotate-x" min="0" max="360" value="0" class="control-input">
+                <span id="rotate-x-value">0°</span>
+            </div>
+            
+            <div class="control-row">
+                <span class="control-label">Rotación Y:</span>
+                <input type="range" id="rotate-y" min="0" max="360" value="0" class="control-input">
+                <span id="rotate-y-value">0°</span>
+            </div>
+            
+            <div class="control-row">
+                <span class="control-label">Rotación Z:</span>
+                <input type="range" id="rotate-z" min="0" max="360" value="0" class="control-input">
+                <span id="rotate-z-value">0°</span>
+            </div>
+        </div>
+        
+        <button id="ar-button">Iniciar Experiencia AR</button>
+    </div>
 
-    <!-- Importando Three.js y GLTFLoader desde CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
         // Variables globales
         let container;
         let camera, scene, renderer;
+        let currentModel;
         let controller;
         let reticle;
         let hitTestSource = null;
         let hitTestSourceRequested = false;
+        let models = {};
+        let placedObject = null;
+        let isARSupported = false;
+        let sessionActive = false;
+        let gltfLoader;
         let customModel = null;
-        let userModelURL = null;
-        let modelScale = 0.1; // Escala predeterminada para el modelo
+        let modelScale = { x: 1, y: 1, z: 1 };
+        let defaultModels = ['cube', 'sphere', 'torus'];
+        let loadedModels = {
+            // Aquí podrás almacenar los modelos precargados
+            // Formato: 'nombreModelo': { object: Object3D, scale: { x, y, z }, position: { x, y, z } }
+        };
 
-        // Elementos DOM
-        const startARButton = document.getElementById('startAR');
-        const uploadModelButton = document.getElementById('uploadModel');
-        const fileInput = document.getElementById('fileInput');
-        const messageElement = document.getElementById('message');
+        const statusMessage = document.getElementById('status-message');
+        const controlPanel = document.getElementById('control-panel');
+        const arButton = document.getElementById('ar-button');
 
-        // Inicializar como función anónima autoejecutable para asegurar que se cargue el DOM
-        (function() {
-            // Configurar botón para cargar modelo
-            uploadModelButton.addEventListener('click', function() {
-                console.log('Botón de carga pulsado');
-                fileInput.click();
-            });
-            
-            // Manejar la carga del archivo
-            fileInput.addEventListener('change', handleFileUpload);
-            
-            // Inicializar solo cuando se hace clic en el botón AR
-            startARButton.addEventListener('click', initialize);
-            
-            // Mensaje inicial
-            showMessage('Pulsa "Cargar Modelo 3D" primero, luego "Iniciar AR"');
-        })();
-
-        function handleFileUpload(event) {
-            console.log('Archivo seleccionado', event.target.files);
-            const file = event.target.files[0];
-            if (!file) {
-                console.log('No se seleccionó ningún archivo');
-                return;
-            }
-            
-            // Verificar si es un archivo GLB o GLTF
-            if (!file.name.toLowerCase().endsWith('.glb') && !file.name.toLowerCase().endsWith('.gltf')) {
-                showMessage('Por favor, selecciona un archivo .glb o .gltf');
-                console.log('Formato de archivo incorrecto');
-                return;
-            }
-            
-            // Crear una URL para el archivo
-            userModelURL = URL.createObjectURL(file);
-            showMessage(`Modelo "${file.name}" cargado. Inicia AR para colocarlo.`);
-            console.log('URL del modelo creada:', userModelURL);
-            
-            // Cargar el modelo para verificar que sea válido
-            const loader = new THREE.GLTFLoader();
-            loader.load(
-                userModelURL,
-                (gltf) => {
-                    // Liberar el modelo si ya existe
-                    if (customModel) {
-                        customModel = null;
-                    }
-                    
-                    // Guardar el modelo cargado
-                    customModel = gltf.scene;
-                    console.log('Modelo cargado correctamente:', customModel);
-                    showMessage(`Modelo "${file.name}" listo. Inicia AR para colocarlo.`);
-                },
-                (xhr) => {
-                    console.log('Progreso de carga: ' + (xhr.loaded / xhr.total * 100) + '%');
-                },
-                (error) => {
-                    console.error('Error al cargar el modelo:', error);
-                    showMessage('Error al cargar el modelo. Intenta con otro archivo.');
-                    userModelURL = null;
-                }
-            );
-        }
-
-        function initialize() {
-            if (!navigator.xr) {
-                showMessage('WebXR no es compatible con este navegador');
-                return;
-            }
-
-            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-                if (supported) {
-                    startARButton.addEventListener('click', onStartAR);
-                    startARButton.textContent = 'Entrar en AR';
-                    startARButton.disabled = false;
-                    
-                    // Inicializar la escena de Three.js
-                    init();
-                } else {
-                    showMessage('La Realidad Aumentada no es compatible con este dispositivo');
-                }
-            });
-        }
+        // Inicialización
+        init();
 
         function init() {
             container = document.getElementById('container');
 
-            // Crear escena
+            // Configuración de la escena
             scene = new THREE.Scene();
 
-            // Configurar cámara
+            // Configuración de la cámara
             camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-            // Configurar iluminación
-            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-            light.position.set(0.5, 1, 0.25);
-            scene.add(light);
+            // Luz ambiental
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
 
-            // Configurar el renderizador
+            // Luz direccional
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0, 5, 0);
+            scene.add(directionalLight);
+
+            // Configuración del renderer
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
             container.appendChild(renderer.domElement);
 
-            // Crear el reticle (indicador de superficie)
-            reticle = new THREE.Mesh(
-                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
-                new THREE.MeshBasicMaterial()
+            // Crear modelos predefinidos
+            createModels();
+
+            // Crear reticle (indicador de posición)
+            createReticle();
+
+            // Verificar soporte para WebXR
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar')
+                    .then((supported) => {
+                        isARSupported = supported;
+                        if (supported) {
+                            statusMessage.textContent = 'WebXR AR soportado - Pulsa el botón para iniciar';
+                            arButton.disabled = false;
+                        } else {
+                            statusMessage.textContent = 'WebXR AR no soportado en este dispositivo/navegador';
+                            arButton.disabled = true;
+                        }
+                    });
+            } else {
+                statusMessage.textContent = 'WebXR no soportado en este navegador';
+                arButton.disabled = true;
+            }
+
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            arButton.addEventListener('click', onARButtonClick);
+
+            // Inicializar cargador GLTF
+            gltfLoader = new THREE.GLTFLoader();
+            
+            // Pre-cargar modelos (si tienes URLs específicas)
+            preloadCustomModels();
+            
+            // Configurar controles UI
+            setupUIControls();
+        }
+        
+        function preloadCustomModels() {
+            // Esta función puede cargar tus modelos pre-establecidos
+            // Ejemplo de cómo cargar un modelo:
+            /*
+            const modelUrl = 'ruta/a/tu/modelo.glb';
+            const modelName = 'nombreDelModelo';
+            
+            gltfLoader.load(
+                modelUrl,
+                (gltf) => {
+                    // Configuración básica del modelo
+                    const model = gltf.scene;
+                    model.scale.set(0.1, 0.1, 0.1); // Ajusta la escala según necesidad
+                    
+                    // Almacena el modelo para uso posterior
+                    loadedModels[modelName] = { 
+                        object: model,
+                        scale: { x: 0.1, y: 0.1, z: 0.1 },
+                        position: { x: 0, y: 0, z: 0 }
+                    };
+                    
+                    // Agrega opción al selector de modelos
+                    addModelOption(modelName);
+                    
+                    console.log(`Modelo ${modelName} cargado correctamente`);
+                },
+                (xhr) => {
+                    console.log(`${modelName}: ${(xhr.loaded / xhr.total) * 100}% cargado`);
+                },
+                (error) => {
+                    console.error(`Error al cargar el modelo ${modelName}:`, error);
+                }
             );
+            */
+            
+            // Puedes agregar más modelos según necesites
+        }
+        
+        function addModelOption(modelName) {
+            const modelSelector = document.querySelector('.model-selector');
+            const modelOption = document.createElement('div');
+            modelOption.className = 'model-option';
+            modelOption.dataset.model = modelName;
+            modelOption.textContent = modelName;
+            
+            modelOption.addEventListener('click', (e) => {
+                setActiveModel(modelName);
+            });
+            
+            modelSelector.appendChild(modelOption);
+        }
+
+        function createModels() {
+            // Cubo
+            const cubeGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+            models.cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+            // Esfera
+            const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+            const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+            models.sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+
+            // Toroide
+            const torusGeometry = new THREE.TorusGeometry(0.15, 0.05, 16, 32);
+            const torusMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
+            models.torus = new THREE.Mesh(torusGeometry, torusMaterial);
+
+            // Establecer modelo predeterminado
+            currentModel = 'cube';
+        }
+
+        function createReticle() {
+            const geometry = new THREE.RingGeometry(0.03, 0.04, 32).rotateX(-Math.PI / 2);
+            const material = new THREE.MeshBasicMaterial();
+            reticle = new THREE.Mesh(geometry, material);
             reticle.matrixAutoUpdate = false;
             reticle.visible = false;
             scene.add(reticle);
-
-            // Ajustar tamaño al cambiar la ventana
-            window.addEventListener('resize', onWindowResize);
         }
 
-        function onStartAR() {
-            // Configuración de la sesión AR
-            const sessionInit = {
-                requiredFeatures: ['hit-test']
-            };
+        function setupUIControls() {
+            // Controles de escala
+            const scaleSlider = document.getElementById('scale-slider');
+            const scaleValue = document.getElementById('scale-value');
+            scaleSlider.addEventListener('input', (e) => {
+                if (placedObject) {
+                    const scale = parseFloat(e.target.value);
+                    placedObject.scale.setScalar(scale);
+                    scaleValue.textContent = scale.toFixed(1);
+                }
+            });
 
-            // Solicitar una sesión AR
-            navigator.xr.requestSession('immersive-ar', sessionInit)
-                .then(onSessionStarted)
-                .catch(error => {
-                    showMessage('Error al iniciar la sesión AR: ' + error.message);
+            // Controles de rotación
+            const rotateX = document.getElementById('rotate-x');
+            const rotateXValue = document.getElementById('rotate-x-value');
+            rotateX.addEventListener('input', (e) => {
+                if (placedObject) {
+                    const angle = parseFloat(e.target.value);
+                    placedObject.rotation.x = angle * (Math.PI / 180);
+                    rotateXValue.textContent = `${angle}°`;
+                }
+            });
+
+            const rotateY = document.getElementById('rotate-y');
+            const rotateYValue = document.getElementById('rotate-y-value');
+            rotateY.addEventListener('input', (e) => {
+                if (placedObject) {
+                    const angle = parseFloat(e.target.value);
+                    placedObject.rotation.y = angle * (Math.PI / 180);
+                    rotateYValue.textContent = `${angle}°`;
+                }
+            });
+
+            const rotateZ = document.getElementById('rotate-z');
+            const rotateZValue = document.getElementById('rotate-z-value');
+            rotateZ.addEventListener('input', (e) => {
+                if (placedObject) {
+                    const angle = parseFloat(e.target.value);
+                    placedObject.rotation.z = angle * (Math.PI / 180);
+                    rotateZValue.textContent = `${angle}°`;
+                }
+            });
+
+            // Configurar input de archivo para cargar modelos personalizados
+            const fileUpload = document.getElementById('file-upload');
+            const fileName = document.getElementById('file-name');
+            const modelStatus = document.getElementById('model-status');
+            
+            fileUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Mostrar nombre del archivo
+                fileName.textContent = file.name;
+                modelStatus.textContent = 'Cargando modelo...';
+                
+                // Crear URL del archivo
+                const fileURL = URL.createObjectURL(file);
+                
+                // Cargar el modelo
+                gltfLoader.load(
+                    fileURL,
+                    (gltf) => {
+                        // Guardar el modelo personalizado
+                        customModel = gltf.scene;
+                        
+                        // Centrar y escalar el modelo adecuadamente
+                        const box = new THREE.Box3().setFromObject(customModel);
+                        const size = box.getSize(new THREE.Vector3());
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        const scale = 0.2 / maxDim; // Escalar para que tenga un tamaño razonable
+                        
+                        customModel.scale.setScalar(scale);
+                        
+                        // Ajustar posición vertical si es necesario
+                        box.setFromObject(customModel);
+                        const center = box.getCenter(new THREE.Vector3());
+                        customModel.position.sub(center);
+                        
+                        // Actualizar estado
+                        modelStatus.textContent = 'Modelo cargado correctamente';
+                        
+                        // Seleccionar el modelo personalizado
+                        setActiveModel('custom');
+                        
+                        // Revoca la URL del objeto cuando ya no se necesita
+                        URL.revokeObjectURL(fileURL);
+                    },
+                    (xhr) => {
+                        const percent = Math.round((xhr.loaded / xhr.total) * 100);
+                        modelStatus.textContent = `Cargando... ${percent}%`;
+                    },
+                    (error) => {
+                        console.error('Error al cargar el modelo:', error);
+                        modelStatus.textContent = 'Error al cargar el modelo';
+                        fileName.textContent = 'Ningún archivo seleccionado';
+                    }
+                );
+            });
+
+            // Selector de modelos
+            const modelOptions = document.querySelectorAll('.model-option');
+            modelOptions.forEach(option => {
+                option.addEventListener('click', (e) => {
+                    const modelName = e.target.dataset.model;
+                    setActiveModel(modelName);
                 });
+            });
+        }
+        
+        function setActiveModel(modelName) {
+            currentModel = modelName;
+            
+            // Actualizar estado activo
+            const modelOptions = document.querySelectorAll('.model-option');
+            modelOptions.forEach(opt => opt.classList.remove('active'));
+            document.querySelector(`.model-option[data-model="${modelName}"]`).classList.add('active');
+            
+            // Si ya hay un objeto colocado, cambiarlo
+            if (placedObject) {
+                scene.remove(placedObject);
+                
+                // Crear el nuevo objeto según el modelo seleccionado
+                if (modelName === 'custom' && customModel) {
+                    placedObject = customModel.clone();
+                } else if (loadedModels[modelName]) {
+                    // Si es un modelo precargado
+                    placedObject = loadedModels[modelName].object.clone();
+                    const modelData = loadedModels[modelName];
+                    placedObject.scale.set(
+                        modelData.scale.x, 
+                        modelData.scale.y, 
+                        modelData.scale.z
+                    );
+                } else {
+                    // Si es un modelo básico
+                    placedObject = models[modelName].clone();
+                }
+                
+                // Mantener escala y rotación anterior si no es un modelo precargado
+                if (defaultModels.includes(modelName)) {
+                    const scaleValue = parseFloat(document.getElementById('scale-slider').value);
+                    placedObject.scale.setScalar(scaleValue);
+                }
+                
+                placedObject.rotation.x = parseFloat(document.getElementById('rotate-x').value) * (Math.PI / 180);
+                placedObject.rotation.y = parseFloat(document.getElementById('rotate-y').value) * (Math.PI / 180);
+                placedObject.rotation.z = parseFloat(document.getElementById('rotate-z').value) * (Math.PI / 180);
+                
+                scene.add(placedObject);
+            }
+        }
+        }
+
+        function onARButtonClick() {
+            if (!isARSupported) return;
+            
+            if (!sessionActive) {
+                // Iniciar sesión AR
+                navigator.xr.requestSession('immersive-ar', {
+                    requiredFeatures: ['hit-test'],
+                    optionalFeatures: ['dom-overlay'],
+                    domOverlay: { root: document.getElementById('ui') }
+                }).then(onSessionStarted);
+            } else {
+                // Terminar sesión AR
+                renderer.xr.getSession().end();
+            }
         }
 
         function onSessionStarted(session) {
-            startARButton.style.display = 'none';
+            session.addEventListener('end', onSessionEnded);
             
-            // Configurar la sesión AR con el renderizador
             renderer.xr.setReferenceSpaceType('local');
             renderer.xr.setSession(session);
             
-            // Establecer eventos de la sesión
-            session.addEventListener('end', onSessionEnded);
+            arButton.textContent = 'Salir de AR';
+            statusMessage.textContent = 'Apunta a una superficie y toca para colocar el objeto';
+            sessionActive = true;
             
-            // Iniciar el bucle de renderizado
-            animate();
-            
-            // Configuración para la detección de superficies
-            session.requestReferenceSpace('viewer').then(referenceSpace => {
-                session.requestHitTestSource({ space: referenceSpace }).then(source => {
-                    hitTestSource = source;
-                });
-            });
-
             session.addEventListener('select', onSelect);
+            
+            animate();
         }
 
         function onSessionEnded() {
-            hitTestSource = null;
-            hitTestSourceRequested = false;
-            startARButton.style.display = 'block';
-            showMessage('Sesión AR finalizada');
+            arButton.textContent = 'Iniciar Experiencia AR';
+            statusMessage.textContent = 'AR detenido - Pulsa el botón para reiniciar';
+            controlPanel.style.display = 'none';
+            sessionActive = false;
+            
+            if (placedObject) {
+                scene.remove(placedObject);
+                placedObject = null;
+            }
+        }
+
+        function onSelect(event) {
+            if (reticle.visible) {
+                if (!placedObject) {
+                    // Primera colocación del objeto
+                    if (currentModel === 'custom' && customModel) {
+                        placedObject = customModel.clone();
+                    } else if (loadedModels[currentModel]) {
+                        // Si es un modelo precargado
+                        placedObject = loadedModels[currentModel].object.clone();
+                        const modelData = loadedModels[currentModel];
+                        placedObject.scale.set(
+                            modelData.scale.x, 
+                            modelData.scale.y, 
+                            modelData.scale.z
+                        );
+                    } else {
+                        // Modelos predefinidos básicos
+                        placedObject = models[currentModel].clone();
+                    }
+                    
+                    placedObject.position.setFromMatrixPosition(reticle.matrix);
+                    scene.add(placedObject);
+                    controlPanel.style.display = 'block';
+                    statusMessage.textContent = 'Usa los controles para modificar el objeto';
+                } else {
+                    // Reposicionar objeto existente
+                    placedObject.position.setFromMatrixPosition(reticle.matrix);
+                }
+            }
         }
 
         function onWindowResize() {
@@ -259,38 +568,42 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
-
-        function showMessage(text) {
-            messageElement.textContent = text;
-        }
-
-        function onSelect() {
-            if (reticle.visible) {
-                // Crear un torus knot en la posición del reticle
-                const geometry = new THREE.TorusKnotGeometry(0.08, 0.025, 100, 16);
-                const material = new THREE.MeshStandardMaterial({
-                    color: 0x1E88E5,
-                    roughness: 0.3,
-                    metalness: 0.7
-                });
-                
-                const torusKnot = new THREE.Mesh(geometry, material);
-                
-                // Posicionar el objeto donde está el reticle
-                torusKnot.position.setFromMatrixPosition(reticle.matrix);
-                
-                // Añadir una animación más compleja
-                torusKnot.userData.animating = true;
-                torusKnot.userData.rotationSpeed = {
-                    x: 0.01 + Math.random() * 0.02,
-                    y: 0.01 + Math.random() * 0.02,
-                    z: 0.01 + Math.random() * 0.02
-                };
-                
-                scene.add(torusKnot);
-                
-                showMessage('¡Objeto 3D colocado! Pulsa de nuevo para colocar otro.');
-            }
+        
+        // Función para cargar un modelo desde URL
+        function loadModelFromURL(https://cdn.glitch.global/e22440f8-b2c7-4cb9-ad1a-b8234bb4341c/CruzBarranco.glb?v=1746008553685, CruzBarranco, scale = 0.1, callback = null) {
+            gltfLoader.load(
+                url,
+                (gltf) => {
+                    // Configuración básica del modelo
+                    const model = gltf.scene;
+                    model.scale.set(scale, scale, scale); // Ajusta la escala según necesidad
+                    
+                    // Centrar el modelo
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    model.position.sub(center);
+                    
+                    // Almacena el modelo para uso posterior
+                    loadedModels[name] = { 
+                        object: model,
+                        scale: { x: scale, y: scale, z: scale },
+                        position: { x: 0, y: 0, z: 0 }
+                    };
+                    
+                    // Agrega opción al selector de modelos
+                    addModelOption(name);
+                    
+                    console.log(`Modelo ${name} cargado correctamente`);
+                    
+                    if (callback) callback(model);
+                },
+                (xhr) => {
+                    console.log(`${name}: ${(xhr.loaded / xhr.total) * 100}% cargado`);
+                },
+                (error) => {
+                    console.error(`Error al cargar el modelo ${name}:`, error);
+                }
+            );
         }
 
         function animate() {
@@ -303,48 +616,35 @@
                 const session = renderer.xr.getSession();
 
                 if (hitTestSourceRequested === false) {
-                    session.requestReferenceSpace('viewer').then(function(referenceSpace) {
-                        session.requestHitTestSource({ space: referenceSpace }).then(function(source) {
-                            hitTestSource = source;
-                        });
+                    session.requestReferenceSpace('viewer').then((referenceSpace) => {
+                        session.requestHitTestSource({ space: referenceSpace })
+                            .then((source) => {
+                                hitTestSource = source;
+                            });
                     });
+
+                    session.addEventListener('end', () => {
+                        hitTestSourceRequested = false;
+                        hitTestSource = null;
+                    });
+
                     hitTestSourceRequested = true;
                 }
 
                 if (hitTestSource) {
                     const hitTestResults = frame.getHitTestResults(hitTestSource);
-                    
-                    if (hitTestResults.length > 0) {
+
+                    if (hitTestResults.length) {
                         const hit = hitTestResults[0];
                         const pose = hit.getPose(referenceSpace);
-                        
+
                         reticle.visible = true;
                         reticle.matrix.fromArray(pose.transform.matrix);
-                        
-                        // Mostramos mensaje de ayuda al usuario
-                        showMessage('Superficie detectada. Pulsa para colocar un cubo.');
                     } else {
                         reticle.visible = false;
-                        showMessage('Mueve despacio el dispositivo para detectar superficies.');
                     }
                 }
             }
-
-            // Animar cualquier objeto que hayamos colocado
-            scene.children.forEach(object => {
-                if (object.userData.animating) {
-                    if (object.userData.rotationSpeed) {
-                        // Usar velocidad de rotación personalizada si está definida
-                        const speed = object.userData.rotationSpeed;
-                        if (speed.x) object.rotation.x += speed.x;
-                        if (speed.y) object.rotation.y += speed.y;
-                        if (speed.z) object.rotation.z += speed.z;
-                    } else {
-                        // Rotación predeterminada
-                        object.rotation.y += 0.01;
-                    }
-                }
-            });
 
             renderer.render(scene, camera);
         }
