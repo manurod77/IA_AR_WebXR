@@ -45,7 +45,10 @@
             z-index: 10;
         }
         #fileInput {
-            display: none;
+            position: absolute;
+            left: -9999px;
+            opacity: 0;
+            visibility: hidden;
         }
         #message {
             position: absolute;
@@ -63,10 +66,10 @@
 </head>
 <body>
     <div id="container"></div>
-    <button id="startAR">Iniciar AR</button>
-    <button id="uploadModel">Cargar Modelo 3D</button>
     <input type="file" id="fileInput" accept=".glb,.gltf">
-    <div id="message">Una vez iniciado, mueve tu dispositivo para detectar superficies</div>
+    <button id="uploadModel">Cargar Modelo 3D</button>
+    <button id="startAR">Iniciar AR</button>
+    <div id="message">Pulsa "Cargar Modelo 3D" primero</div>
 
     <!-- Importando Three.js y GLTFLoader desde CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -89,36 +92,47 @@
         const fileInput = document.getElementById('fileInput');
         const messageElement = document.getElementById('message');
 
-        // Configurar cargador de modelos
-        const gltfLoader = new THREE.GLTFLoader();
-
-        // Inicializar solo cuando se hace clic en el botón
-        startARButton.addEventListener('click', initialize);
-        
-        // Configurar botón para cargar modelo
-        uploadModelButton.addEventListener('click', () => {
-            fileInput.click();
-        });
-        
-        // Manejar la carga del archivo
-        fileInput.addEventListener('change', handleFileUpload);
+        // Inicializar como función anónima autoejecutable para asegurar que se cargue el DOM
+        (function() {
+            // Configurar botón para cargar modelo
+            uploadModelButton.addEventListener('click', function() {
+                console.log('Botón de carga pulsado');
+                fileInput.click();
+            });
+            
+            // Manejar la carga del archivo
+            fileInput.addEventListener('change', handleFileUpload);
+            
+            // Inicializar solo cuando se hace clic en el botón AR
+            startARButton.addEventListener('click', initialize);
+            
+            // Mensaje inicial
+            showMessage('Pulsa "Cargar Modelo 3D" primero, luego "Iniciar AR"');
+        })();
 
         function handleFileUpload(event) {
+            console.log('Archivo seleccionado', event.target.files);
             const file = event.target.files[0];
-            if (!file) return;
+            if (!file) {
+                console.log('No se seleccionó ningún archivo');
+                return;
+            }
             
             // Verificar si es un archivo GLB o GLTF
             if (!file.name.toLowerCase().endsWith('.glb') && !file.name.toLowerCase().endsWith('.gltf')) {
                 showMessage('Por favor, selecciona un archivo .glb o .gltf');
+                console.log('Formato de archivo incorrecto');
                 return;
             }
             
             // Crear una URL para el archivo
             userModelURL = URL.createObjectURL(file);
-            showMessage(`Modelo ${file.name} cargado. Inicia AR para colocarlo.`);
+            showMessage(`Modelo "${file.name}" cargado. Inicia AR para colocarlo.`);
+            console.log('URL del modelo creada:', userModelURL);
             
             // Cargar el modelo para verificar que sea válido
-            gltfLoader.load(
+            const loader = new THREE.GLTFLoader();
+            loader.load(
                 userModelURL,
                 (gltf) => {
                     // Liberar el modelo si ya existe
@@ -128,9 +142,12 @@
                     
                     // Guardar el modelo cargado
                     customModel = gltf.scene;
-                    showMessage('Modelo cargado correctamente. Inicia AR para colocarlo.');
+                    console.log('Modelo cargado correctamente:', customModel);
+                    showMessage(`Modelo "${file.name}" listo. Inicia AR para colocarlo.`);
                 },
-                undefined, // Progress callback
+                (xhr) => {
+                    console.log('Progreso de carga: ' + (xhr.loaded / xhr.total * 100) + '%');
+                },
                 (error) => {
                     console.error('Error al cargar el modelo:', error);
                     showMessage('Error al cargar el modelo. Intenta con otro archivo.');
