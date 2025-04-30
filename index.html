@@ -79,27 +79,6 @@
             background-color: rgba(0, 123, 255, 1);
             font-weight: bold;
         }
-        .file-input-container {
-            margin-top: 10px;
-            text-align: center;
-        }
-        #file-upload {
-            display: none;
-        }
-        .file-input-label {
-            display: inline-block;
-            padding: 8px 12px;
-            background-color: rgba(40, 167, 69, 0.8);
-            color: white;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-bottom: 5px;
-        }
-        #file-name {
-            font-size: 12px;
-            color: #333;
-            margin-top: 5px;
-        }
         .status-message {
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
@@ -121,14 +100,6 @@
                 <div class="model-option active" data-model="cube">Cubo</div>
                 <div class="model-option" data-model="sphere">Esfera</div>
                 <div class="model-option" data-model="torus">Toroide</div>
-                <div class="model-option" data-model="custom">Modelo Personalizado</div>
-            </div>
-            
-            <div class="file-input-container">
-                <label for="file-upload" class="file-input-label">Cargar Modelo 3D (GLB/GLTF)</label>
-                <input type="file" id="file-upload" accept=".glb,.gltf">
-                <div id="file-name">Ningún archivo seleccionado</div>
-                <div id="model-status"></div>
             </div>
             
             <div class="control-row">
@@ -160,8 +131,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
         // Variables globales
         let container;
@@ -175,14 +144,6 @@
         let placedObject = null;
         let isARSupported = false;
         let sessionActive = false;
-        let gltfLoader;
-        let customModel = null;
-        let modelScale = { x: 1, y: 1, z: 1 };
-        let defaultModels = ['cube', 'sphere', 'torus'];
-        let loadedModels = {
-            // Aquí podrás almacenar los modelos precargados
-            // Formato: 'nombreModelo': { object: Object3D, scale: { x, y, z }, position: { x, y, z } }
-        };
 
         const statusMessage = document.getElementById('status-message');
         const controlPanel = document.getElementById('control-panel');
@@ -244,66 +205,8 @@
             window.addEventListener('resize', onWindowResize);
             arButton.addEventListener('click', onARButtonClick);
 
-            // Inicializar cargador GLTF
-            gltfLoader = new THREE.GLTFLoader();
-            
-            // Pre-cargar modelos (si tienes URLs específicas)
-            preloadCustomModels();
-            
             // Configurar controles UI
             setupUIControls();
-        }
-        
-        function preloadCustomModels() {
-            // Esta función puede cargar tus modelos pre-establecidos
-            // Ejemplo de cómo cargar un modelo:
-            /*
-            const modelUrl = 'ruta/a/tu/modelo.glb';
-            const modelName = 'nombreDelModelo';
-            
-            gltfLoader.load(
-                modelUrl,
-                (gltf) => {
-                    // Configuración básica del modelo
-                    const model = gltf.scene;
-                    model.scale.set(0.1, 0.1, 0.1); // Ajusta la escala según necesidad
-                    
-                    // Almacena el modelo para uso posterior
-                    loadedModels[modelName] = { 
-                        object: model,
-                        scale: { x: 0.1, y: 0.1, z: 0.1 },
-                        position: { x: 0, y: 0, z: 0 }
-                    };
-                    
-                    // Agrega opción al selector de modelos
-                    addModelOption(modelName);
-                    
-                    console.log(`Modelo ${modelName} cargado correctamente`);
-                },
-                (xhr) => {
-                    console.log(`${modelName}: ${(xhr.loaded / xhr.total) * 100}% cargado`);
-                },
-                (error) => {
-                    console.error(`Error al cargar el modelo ${modelName}:`, error);
-                }
-            );
-            */
-            
-            // Puedes agregar más modelos según necesites
-        }
-        
-        function addModelOption(modelName) {
-            const modelSelector = document.querySelector('.model-selector');
-            const modelOption = document.createElement('div');
-            modelOption.className = 'model-option';
-            modelOption.dataset.model = modelName;
-            modelOption.textContent = modelName;
-            
-            modelOption.addEventListener('click', (e) => {
-                setActiveModel(modelName);
-            });
-            
-            modelSelector.appendChild(modelOption);
         }
 
         function createModels() {
@@ -378,115 +281,35 @@
                 }
             });
 
-            // Configurar input de archivo para cargar modelos personalizados
-            const fileUpload = document.getElementById('file-upload');
-            const fileName = document.getElementById('file-name');
-            const modelStatus = document.getElementById('model-status');
-            
-            fileUpload.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                // Mostrar nombre del archivo
-                fileName.textContent = file.name;
-                modelStatus.textContent = 'Cargando modelo...';
-                
-                // Crear URL del archivo
-                const fileURL = URL.createObjectURL(file);
-                
-                // Cargar el modelo
-                gltfLoader.load(
-                    fileURL,
-                    (gltf) => {
-                        // Guardar el modelo personalizado
-                        customModel = gltf.scene;
-                        
-                        // Centrar y escalar el modelo adecuadamente
-                        const box = new THREE.Box3().setFromObject(customModel);
-                        const size = box.getSize(new THREE.Vector3());
-                        const maxDim = Math.max(size.x, size.y, size.z);
-                        const scale = 0.2 / maxDim; // Escalar para que tenga un tamaño razonable
-                        
-                        customModel.scale.setScalar(scale);
-                        
-                        // Ajustar posición vertical si es necesario
-                        box.setFromObject(customModel);
-                        const center = box.getCenter(new THREE.Vector3());
-                        customModel.position.sub(center);
-                        
-                        // Actualizar estado
-                        modelStatus.textContent = 'Modelo cargado correctamente';
-                        
-                        // Seleccionar el modelo personalizado
-                        setActiveModel('custom');
-                        
-                        // Revoca la URL del objeto cuando ya no se necesita
-                        URL.revokeObjectURL(fileURL);
-                    },
-                    (xhr) => {
-                        const percent = Math.round((xhr.loaded / xhr.total) * 100);
-                        modelStatus.textContent = `Cargando... ${percent}%`;
-                    },
-                    (error) => {
-                        console.error('Error al cargar el modelo:', error);
-                        modelStatus.textContent = 'Error al cargar el modelo';
-                        fileName.textContent = 'Ningún archivo seleccionado';
-                    }
-                );
-            });
-
             // Selector de modelos
             const modelOptions = document.querySelectorAll('.model-option');
             modelOptions.forEach(option => {
                 option.addEventListener('click', (e) => {
                     const modelName = e.target.dataset.model;
-                    setActiveModel(modelName);
+                    currentModel = modelName;
+                    
+                    // Actualizar estado activo
+                    modelOptions.forEach(opt => opt.classList.remove('active'));
+                    e.target.classList.add('active');
+                    
+                    // Si ya hay un objeto colocado, cambiarlo
+                    if (placedObject) {
+                        scene.remove(placedObject);
+                        
+                        placedObject = models[modelName].clone();
+                        
+                        // Mantener escala y rotación anterior
+                        const scaleValue = parseFloat(document.getElementById('scale-slider').value);
+                        placedObject.scale.setScalar(scaleValue);
+                        
+                        placedObject.rotation.x = parseFloat(document.getElementById('rotate-x').value) * (Math.PI / 180);
+                        placedObject.rotation.y = parseFloat(document.getElementById('rotate-y').value) * (Math.PI / 180);
+                        placedObject.rotation.z = parseFloat(document.getElementById('rotate-z').value) * (Math.PI / 180);
+                        
+                        scene.add(placedObject);
+                    }
                 });
             });
-        }
-        
-        function setActiveModel(modelName) {
-            currentModel = modelName;
-            
-            // Actualizar estado activo
-            const modelOptions = document.querySelectorAll('.model-option');
-            modelOptions.forEach(opt => opt.classList.remove('active'));
-            document.querySelector(`.model-option[data-model="${modelName}"]`).classList.add('active');
-            
-            // Si ya hay un objeto colocado, cambiarlo
-            if (placedObject) {
-                scene.remove(placedObject);
-                
-                // Crear el nuevo objeto según el modelo seleccionado
-                if (modelName === 'custom' && customModel) {
-                    placedObject = customModel.clone();
-                } else if (loadedModels[modelName]) {
-                    // Si es un modelo precargado
-                    placedObject = loadedModels[modelName].object.clone();
-                    const modelData = loadedModels[modelName];
-                    placedObject.scale.set(
-                        modelData.scale.x, 
-                        modelData.scale.y, 
-                        modelData.scale.z
-                    );
-                } else {
-                    // Si es un modelo básico
-                    placedObject = models[modelName].clone();
-                }
-                
-                // Mantener escala y rotación anterior si no es un modelo precargado
-                if (defaultModels.includes(modelName)) {
-                    const scaleValue = parseFloat(document.getElementById('scale-slider').value);
-                    placedObject.scale.setScalar(scaleValue);
-                }
-                
-                placedObject.rotation.x = parseFloat(document.getElementById('rotate-x').value) * (Math.PI / 180);
-                placedObject.rotation.y = parseFloat(document.getElementById('rotate-y').value) * (Math.PI / 180);
-                placedObject.rotation.z = parseFloat(document.getElementById('rotate-z').value) * (Math.PI / 180);
-                
-                scene.add(placedObject);
-            }
-        }
         }
 
         function onARButtonClick() {
@@ -536,22 +359,7 @@
             if (reticle.visible) {
                 if (!placedObject) {
                     // Primera colocación del objeto
-                    if (currentModel === 'custom' && customModel) {
-                        placedObject = customModel.clone();
-                    } else if (loadedModels[currentModel]) {
-                        // Si es un modelo precargado
-                        placedObject = loadedModels[currentModel].object.clone();
-                        const modelData = loadedModels[currentModel];
-                        placedObject.scale.set(
-                            modelData.scale.x, 
-                            modelData.scale.y, 
-                            modelData.scale.z
-                        );
-                    } else {
-                        // Modelos predefinidos básicos
-                        placedObject = models[currentModel].clone();
-                    }
-                    
+                    placedObject = models[currentModel].clone();
                     placedObject.position.setFromMatrixPosition(reticle.matrix);
                     scene.add(placedObject);
                     controlPanel.style.display = 'block';
@@ -567,43 +375,6 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        
-        // Función para cargar un modelo desde URL
-        function loadModelFromURL(https://cdn.glitch.global/e22440f8-b2c7-4cb9-ad1a-b8234bb4341c/CruzBarranco.glb?v=1746008553685, CruzBarranco, scale = 0.1, callback = null) {
-            gltfLoader.load(
-                url,
-                (gltf) => {
-                    // Configuración básica del modelo
-                    const model = gltf.scene;
-                    model.scale.set(scale, scale, scale); // Ajusta la escala según necesidad
-                    
-                    // Centrar el modelo
-                    const box = new THREE.Box3().setFromObject(model);
-                    const center = box.getCenter(new THREE.Vector3());
-                    model.position.sub(center);
-                    
-                    // Almacena el modelo para uso posterior
-                    loadedModels[name] = { 
-                        object: model,
-                        scale: { x: scale, y: scale, z: scale },
-                        position: { x: 0, y: 0, z: 0 }
-                    };
-                    
-                    // Agrega opción al selector de modelos
-                    addModelOption(name);
-                    
-                    console.log(`Modelo ${name} cargado correctamente`);
-                    
-                    if (callback) callback(model);
-                },
-                (xhr) => {
-                    console.log(`${name}: ${(xhr.loaded / xhr.total) * 100}% cargado`);
-                },
-                (error) => {
-                    console.error(`Error al cargar el modelo ${name}:`, error);
-                }
-            );
         }
 
         function animate() {
