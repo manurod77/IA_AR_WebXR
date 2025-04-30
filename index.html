@@ -87,71 +87,6 @@
             margin-bottom: 10px;
             text-align: center;
         }
-        .action-buttons {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        .icon-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.8);
-            margin: 0 10px;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        }
-        .icon-button svg {
-            width: 24px;
-            height: 24px;
-            fill: #333;
-        }
-        .screenshot-preview {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .screenshot-preview img {
-            max-width: 90%;
-            max-height: 70%;
-            border: 2px solid white;
-        }
-        .screenshot-actions {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-        }
-        .screenshot-actions button {
-            margin: 0 10px;
-        }
-        .hidden {
-            display: none !important;
-        }
-        .toggle-controls-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            z-index: 200;
-        }
     </style>
 </head>
 <body>
@@ -192,31 +127,7 @@
             </div>
         </div>
         
-        <div class="action-buttons" id="action-buttons" style="display: none;">
-            <div class="icon-button" id="camera-button" title="Tomar captura">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M9 2L7.17 4H4C2.9 4 2 4.9 2 6v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                    <circle cx="12" cy="12" r="3.2"/>
-                </svg>
-            </div>
-        </div>
-        
         <button id="ar-button">Iniciar Experiencia AR</button>
-    </div>
-    
-    <div class="toggle-controls-btn" id="toggle-controls" style="display: none;">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
-        </svg>
-    </div>
-    
-    <div class="screenshot-preview" id="screenshot-preview">
-        <img id="screenshot-image" src="" alt="Captura de pantalla">
-        <div class="screenshot-actions">
-            <button id="save-button">Guardar</button>
-            <button id="share-button">Compartir</button>
-            <button id="close-preview">Cerrar</button>
-        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -233,19 +144,10 @@
         let placedObject = null;
         let isARSupported = false;
         let sessionActive = false;
-        let controlsVisible = true;
 
         const statusMessage = document.getElementById('status-message');
         const controlPanel = document.getElementById('control-panel');
         const arButton = document.getElementById('ar-button');
-        const toggleControls = document.getElementById('toggle-controls');
-        const actionButtons = document.getElementById('action-buttons');
-        const cameraButton = document.getElementById('camera-button');
-        const screenshotPreview = document.getElementById('screenshot-preview');
-        const screenshotImage = document.getElementById('screenshot-image');
-        const saveButton = document.getElementById('save-button');
-        const shareButton = document.getElementById('share-button');
-        const closePreviewButton = document.getElementById('close-preview');
 
         // Inicialización
         init();
@@ -302,11 +204,6 @@
             // Event listeners
             window.addEventListener('resize', onWindowResize);
             arButton.addEventListener('click', onARButtonClick);
-            toggleControls.addEventListener('click', toggleControlsVisibility);
-            cameraButton.addEventListener('click', takeScreenshot);
-            saveButton.addEventListener('click', saveScreenshot);
-            shareButton.addEventListener('click', shareScreenshot);
-            closePreviewButton.addEventListener('click', closeScreenshotPreview);
 
             // Configurar controles UI
             setupUIControls();
@@ -369,6 +266,159 @@
             rotateY.addEventListener('input', (e) => {
                 if (placedObject) {
                     const angle = parseFloat(e.target.value);
-                    plac
+                    placedObject.rotation.y = angle * (Math.PI / 180);
+                    rotateYValue.textContent = `${angle}°`;
+                }
+            });
+
+            const rotateZ = document.getElementById('rotate-z');
+            const rotateZValue = document.getElementById('rotate-z-value');
+            rotateZ.addEventListener('input', (e) => {
+                if (placedObject) {
+                    const angle = parseFloat(e.target.value);
+                    placedObject.rotation.z = angle * (Math.PI / 180);
+                    rotateZValue.textContent = `${angle}°`;
+                }
+            });
+
+            // Selector de modelos
+            const modelOptions = document.querySelectorAll('.model-option');
+            modelOptions.forEach(option => {
+                option.addEventListener('click', (e) => {
+                    const modelName = e.target.dataset.model;
+                    currentModel = modelName;
+                    
+                    // Actualizar estado activo
+                    modelOptions.forEach(opt => opt.classList.remove('active'));
+                    e.target.classList.add('active');
+                    
+                    // Si ya hay un objeto colocado, cambiarlo
+                    if (placedObject) {
+                        scene.remove(placedObject);
+                        
+                        placedObject = models[modelName].clone();
+                        
+                        // Mantener escala y rotación anterior
+                        const scaleValue = parseFloat(document.getElementById('scale-slider').value);
+                        placedObject.scale.setScalar(scaleValue);
+                        
+                        placedObject.rotation.x = parseFloat(document.getElementById('rotate-x').value) * (Math.PI / 180);
+                        placedObject.rotation.y = parseFloat(document.getElementById('rotate-y').value) * (Math.PI / 180);
+                        placedObject.rotation.z = parseFloat(document.getElementById('rotate-z').value) * (Math.PI / 180);
+                        
+                        scene.add(placedObject);
+                    }
+                });
+            });
+        }
+
+        function onARButtonClick() {
+            if (!isARSupported) return;
+            
+            if (!sessionActive) {
+                // Iniciar sesión AR
+                navigator.xr.requestSession('immersive-ar', {
+                    requiredFeatures: ['hit-test'],
+                    optionalFeatures: ['dom-overlay'],
+                    domOverlay: { root: document.getElementById('ui') }
+                }).then(onSessionStarted);
+            } else {
+                // Terminar sesión AR
+                renderer.xr.getSession().end();
+            }
+        }
+
+        function onSessionStarted(session) {
+            session.addEventListener('end', onSessionEnded);
+            
+            renderer.xr.setReferenceSpaceType('local');
+            renderer.xr.setSession(session);
+            
+            arButton.textContent = 'Salir de AR';
+            statusMessage.textContent = 'Apunta a una superficie y toca para colocar el objeto';
+            sessionActive = true;
+            
+            session.addEventListener('select', onSelect);
+            
+            animate();
+        }
+
+        function onSessionEnded() {
+            arButton.textContent = 'Iniciar Experiencia AR';
+            statusMessage.textContent = 'AR detenido - Pulsa el botón para reiniciar';
+            controlPanel.style.display = 'none';
+            sessionActive = false;
+            
+            if (placedObject) {
+                scene.remove(placedObject);
+                placedObject = null;
+            }
+        }
+
+        function onSelect(event) {
+            if (reticle.visible) {
+                if (!placedObject) {
+                    // Primera colocación del objeto
+                    placedObject = models[currentModel].clone();
+                    placedObject.position.setFromMatrixPosition(reticle.matrix);
+                    scene.add(placedObject);
+                    controlPanel.style.display = 'block';
+                    statusMessage.textContent = 'Usa los controles para modificar el objeto';
+                } else {
+                    // Reposicionar objeto existente
+                    placedObject.position.setFromMatrixPosition(reticle.matrix);
+                }
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            renderer.setAnimationLoop(render);
+        }
+
+        function render(timestamp, frame) {
+            if (frame) {
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
+
+                if (hitTestSourceRequested === false) {
+                    session.requestReferenceSpace('viewer').then((referenceSpace) => {
+                        session.requestHitTestSource({ space: referenceSpace })
+                            .then((source) => {
+                                hitTestSource = source;
+                            });
+                    });
+
+                    session.addEventListener('end', () => {
+                        hitTestSourceRequested = false;
+                        hitTestSource = null;
+                    });
+
+                    hitTestSourceRequested = true;
+                }
+
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+                    if (hitTestResults.length) {
+                        const hit = hitTestResults[0];
+                        const pose = hit.getPose(referenceSpace);
+
+                        reticle.visible = true;
+                        reticle.matrix.fromArray(pose.transform.matrix);
+                    } else {
+                        reticle.visible = false;
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
 </body>
 </html>
