@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR WebXR App</title>
+    <title>AR WebXR App - Modelo Personalizado</title>
     <style>
         body {
             margin: 0;
@@ -18,7 +18,7 @@
         }
         #startAR {
             position: absolute;
-            bottom: 20px;
+            bottom: 70px;
             left: 50%;
             transform: translateX(-50%);
             padding: 12px 24px;
@@ -29,6 +29,23 @@
             font-size: 16px;
             cursor: pointer;
             z-index: 10;
+        }
+        #uploadModel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background-color: #34a853;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 10;
+        }
+        #fileInput {
+            display: none;
         }
         #message {
             position: absolute;
@@ -47,10 +64,13 @@
 <body>
     <div id="container"></div>
     <button id="startAR">Iniciar AR</button>
+    <button id="uploadModel">Cargar Modelo 3D</button>
+    <input type="file" id="fileInput" accept=".glb,.gltf">
     <div id="message">Una vez iniciado, mueve tu dispositivo para detectar superficies</div>
 
-    <!-- Importando Three.js desde CDN -->
+    <!-- Importando Three.js y GLTFLoader desde CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js"></script>
     <script>
         // Variables globales
         let container;
@@ -59,14 +79,65 @@
         let reticle;
         let hitTestSource = null;
         let hitTestSourceRequested = false;
-        let cube = null;
+        let customModel = null;
+        let userModelURL = null;
+        let modelScale = 0.1; // Escala predeterminada para el modelo
 
         // Elementos DOM
         const startARButton = document.getElementById('startAR');
+        const uploadModelButton = document.getElementById('uploadModel');
+        const fileInput = document.getElementById('fileInput');
         const messageElement = document.getElementById('message');
+
+        // Configurar cargador de modelos
+        const gltfLoader = new THREE.GLTFLoader();
 
         // Inicializar solo cuando se hace clic en el botón
         startARButton.addEventListener('click', initialize);
+        
+        // Configurar botón para cargar modelo
+        uploadModelButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Manejar la carga del archivo
+        fileInput.addEventListener('change', handleFileUpload);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Verificar si es un archivo GLB o GLTF
+            if (!file.name.toLowerCase().endsWith('.glb') && !file.name.toLowerCase().endsWith('.gltf')) {
+                showMessage('Por favor, selecciona un archivo .glb o .gltf');
+                return;
+            }
+            
+            // Crear una URL para el archivo
+            userModelURL = URL.createObjectURL(file);
+            showMessage(`Modelo ${file.name} cargado. Inicia AR para colocarlo.`);
+            
+            // Cargar el modelo para verificar que sea válido
+            gltfLoader.load(
+                userModelURL,
+                (gltf) => {
+                    // Liberar el modelo si ya existe
+                    if (customModel) {
+                        customModel = null;
+                    }
+                    
+                    // Guardar el modelo cargado
+                    customModel = gltf.scene;
+                    showMessage('Modelo cargado correctamente. Inicia AR para colocarlo.');
+                },
+                undefined, // Progress callback
+                (error) => {
+                    console.error('Error al cargar el modelo:', error);
+                    showMessage('Error al cargar el modelo. Intenta con otro archivo.');
+                    userModelURL = null;
+                }
+            );
+        }
 
         function initialize() {
             if (!navigator.xr) {
@@ -178,25 +249,30 @@
 
         function onSelect() {
             if (reticle.visible) {
-                // Crear un cubo en la posición del reticle
-                const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+                // Crear un torus knot en la posición del reticle
+                const geometry = new THREE.TorusKnotGeometry(0.08, 0.025, 100, 16);
                 const material = new THREE.MeshStandardMaterial({
-                    color: 0x00FF00,
-                    roughness: 0.7,
-                    metalness: 0.3
+                    color: 0x1E88E5,
+                    roughness: 0.3,
+                    metalness: 0.7
                 });
                 
-                cube = new THREE.Mesh(geometry, material);
+                const torusKnot = new THREE.Mesh(geometry, material);
                 
-                // Posicionar el cubo donde está el reticle
-                cube.position.setFromMatrixPosition(reticle.matrix);
+                // Posicionar el objeto donde está el reticle
+                torusKnot.position.setFromMatrixPosition(reticle.matrix);
                 
-                // Añadir una animación simple de rotación
-                cube.userData.animating = true;
+                // Añadir una animación más compleja
+                torusKnot.userData.animating = true;
+                torusKnot.userData.rotationSpeed = {
+                    x: 0.01 + Math.random() * 0.02,
+                    y: 0.01 + Math.random() * 0.02,
+                    z: 0.01 + Math.random() * 0.02
+                };
                 
-                scene.add(cube);
+                scene.add(torusKnot);
                 
-                showMessage('¡Cubo colocado! Pulsa de nuevo para colocar otro.');
+                showMessage('¡Objeto 3D colocado! Pulsa de nuevo para colocar otro.');
             }
         }
 
@@ -237,11 +313,19 @@
                 }
             }
 
-            // Animar cualquier cubo que hayamos colocado
+            // Animar cualquier objeto que hayamos colocado
             scene.children.forEach(object => {
                 if (object.userData.animating) {
-                    object.rotation.x += 0.01;
-                    object.rotation.y += 0.02;
+                    if (object.userData.rotationSpeed) {
+                        // Usar velocidad de rotación personalizada si está definida
+                        const speed = object.userData.rotationSpeed;
+                        if (speed.x) object.rotation.x += speed.x;
+                        if (speed.y) object.rotation.y += speed.y;
+                        if (speed.z) object.rotation.z += speed.z;
+                    } else {
+                        // Rotación predeterminada
+                        object.rotation.y += 0.01;
+                    }
                 }
             });
 
