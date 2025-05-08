@@ -3,422 +3,857 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebXR AR - Modelos 3D</title>
+    <title>BulboXR - Experiencias Interactivas</title>
     <style>
+        /* Estilos Base */
         body {
             margin: 0;
-            padding: 0;
             overflow: hidden;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            background-color: #121212;
         }
-        #container {
+        
+        /* Container Principal UI */
+        #ui-container {
             position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
+            pointer-events: none;
+            z-index: 10;
         }
-        #ui {
+        
+        /* Pantalla de Carga */
+        #loading-screen {
             position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            transition: opacity 0.5s;
+            z-index: 100;
+        }
+        
+        #loading-progress {
+            margin: 20px 0;
+            font-size: 1.1em;
+        }
+        
+        #loading-bar {
+            width: 80%;
+            max-width: 300px;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0 30px 0;
+        }
+        
+        #loading-bar-fill {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+        
+        /* Botones de Acción */
+        .action-button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            pointer-events: auto;
+            margin-top: 20px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        
+        .action-button:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+        
+        /* Menú de Experiencias */
+        #experience-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            z-index: 90;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+        
+        #experience-menu.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .experience-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+            width: 90%;
+            max-width: 800px;
+        }
+        
+        .experience-option {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            width: 220px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s, background-color 0.3s;
+            pointer-events: auto;
+        }
+        
+        .experience-option:hover {
+            transform: scale(1.05);
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .experience-option .icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        /* Panel de información */
+        #info-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            box-sizing: border-box;
+            transform: translateY(-100%);
+            transition: transform 0.5s;
+            pointer-events: auto;
+            max-height: 60%;
+            overflow-y: auto;
+            z-index: 50;
+        }
+        
+        #info-panel.visible {
+            transform: translateY(0);
+        }
+        
+        /* Panel de escaneo QR */
+        #qr-scanner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 80;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+        
+        #qr-scanner.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        #qr-scanner-video {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        #qr-scanner-overlay {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border: 2px solid #4CAF50;
+            border-radius: 20px;
+            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* Controles AR/VR */
+        .controls {
+            position: fixed;
+            bottom: 70px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        .controls.visible {
+            opacity: 1;
+        }
+        
+        .control-button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.7);
+            border: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            cursor: pointer;
+            font-size: 1.5em;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        
+        .control-button:hover {
+            background-color: rgba(255, 255, 255, 0.9);
+            transform: scale(1.1);
+        }
+        
+        /* Mensajes de estado */
+        #status-message {
+            position: fixed;
             bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            z-index: 40;
+            opacity: 0;
+        }
+        
+        #status-message.visible {
+            opacity: 1;
+        }
+        
+        /* Navegación AR */
+        #ar-navigation {
+            position: fixed;
+            bottom: 30px;
             left: 0;
             width: 100%;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            z-index: 100;
-        }
-        button {
-            padding: 12px 20px;
-            margin: 8px;
-            background-color: rgba(0, 123, 255, 0.8);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        button:disabled {
-            background-color: rgba(108, 117, 125, 0.8);
-        }
-        .control-panel {
-            background-color: rgba(255, 255, 255, 0.8);
+            justify-content: center;
             padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            width: 90%;
-            max-width: 400px;
-            display: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            z-index: 30;
         }
-        .control-row {
+        
+        #ar-navigation.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .nav-button {
+            background-color: rgba(255, 255, 255, 0.7);
+            border: none;
+            border-radius: 20px;
+            padding: 10px 20px;
+            margin: 0 5px;
+            font-size: 1em;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        
+        /* Panel de opciones de accesibilidad */
+        #accessibility-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 10px 0;
+            gap: 10px;
+            z-index: 60;
+            opacity: 0;
+            transition: opacity 0.5s;
         }
-        .control-label {
-            font-weight: bold;
-            width: 100px;
+        
+        #accessibility-panel.visible {
+            opacity: 1;
         }
-        .control-input {
-            flex-grow: 1;
-        }
-        .model-selector {
+        
+        .accessibility-button {
+            background-color: rgba(255, 255, 255, 0.3);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
             display: flex;
             justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
-        }
-        .model-option {
-            padding: 8px 12px;
-            margin: 4px;
-            background-color: rgba(0, 123, 255, 0.6);
-            color: white;
-            border-radius: 4px;
+            align-items: center;
             cursor: pointer;
+            pointer-events: auto;
+            transition: background-color 0.3s;
         }
-        .model-option.active {
-            background-color: rgba(0, 123, 255, 1);
+        
+        .accessibility-button:hover {
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        /* Panel de POI en AR */
+        .poi-panel {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 15px;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        
+        .poi-panel.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .poi-title {
+            font-size: 1.2em;
             font-weight: bold;
-        }
-        .status-message {
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px;
-            border-radius: 4px;
             margin-bottom: 10px;
-            text-align: center;
+        }
+        
+        .poi-description {
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+        
+        .poi-actions {
+            display: flex;
+            justify-content: space-around;
+        }
+        
+        .poi-button {
+            background-color: rgba(255, 255, 255, 0.3);
+            border: none;
+            border-radius: 15px;
+            padding: 8px 15px;
+            font-size: 0.9em;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        
+        /* Estilos para dark mode */
+        .dark-mode {
+            background-color: #000;
+            color: #fff;
+        }
+        
+        /* Estilos para high contrast */
+        .high-contrast {
+            background-color: #000;
+            color: #fff;
+        }
+        
+        .high-contrast .experience-option {
+            background-color: #000;
+            border: 2px solid #fff;
+        }
+        
+        .high-contrast .action-button,
+        .high-contrast .control-button {
+            background-color: #000;
+            border: 2px solid #fff;
+            color: #fff;
+        }
+        
+        /* Estilos para font-size */
+        .large-text {
+            font-size: 1.2em;
+        }
+        
+        .larger-text {
+            font-size: 1.4em;
+        }
+        
+        /* Utilidades */
+        .close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <div id="container"></div>
-    
-    <div id="ui">
-        <div id="status-message" class="status-message">Esperando iniciar AR...</div>
+    <div id="ui-container">
+        <!-- Pantalla de Carga Inicial -->
+        <div id="loading-screen">
+            <h1>BulboXR</h1>
+            <p>Plataforma de Experiencias Inmersivas</p>
+            <div id="loading-progress">Inicializando aplicación...</div>
+            <div id="loading-bar">
+                <div id="loading-bar-fill"></div>
+            </div>
+            <button id="scan-qr-button" class="action-button hidden">Escanear Postcard</button>
+            <button id="skip-scan-button" class="action-button hidden">Acceder sin Postcard</button>
+        </div>
         
-        <div id="control-panel" class="control-panel">
-            <div class="model-selector">
-                <div class="model-option active" data-model="cube">Cubo</div>
-                <div class="model-option" data-model="sphere">Esfera</div>
-                <div class="model-option" data-model="torus">Toroide</div>
-            </div>
-            
-            <div class="control-row">
-                <span class="control-label">Escala:</span>
-                <input type="range" id="scale-slider" min="0.5" max="3" step="0.1" value="1" class="control-input">
-                <span id="scale-value">1.0</span>
-            </div>
-            
-            <div class="control-row">
-                <span class="control-label">Rotación X:</span>
-                <input type="range" id="rotate-x" min="0" max="360" value="0" class="control-input">
-                <span id="rotate-x-value">0°</span>
-            </div>
-            
-            <div class="control-row">
-                <span class="control-label">Rotación Y:</span>
-                <input type="range" id="rotate-y" min="0" max="360" value="0" class="control-input">
-                <span id="rotate-y-value">0°</span>
-            </div>
-            
-            <div class="control-row">
-                <span class="control-label">Rotación Z:</span>
-                <input type="range" id="rotate-z" min="0" max="360" value="0" class="control-input">
-                <span id="rotate-z-value">0°</span>
+        <!-- Escáner de QR -->
+        <div id="qr-scanner" class="hidden">
+            <div id="qr-scanner-overlay"></div>
+            <video id="qr-scanner-video" autoplay playsinline></video>
+            <p>Apunta la cámara a la postcard BulboXR</p>
+            <button id="cancel-scan-button" class="action-button">Cancelar</button>
+        </div>
+        
+        <!-- Menú de Experiencias -->
+        <div id="experience-menu">
+            <h2>Experiencias BulboXR</h2>
+            <p>Selecciona una experiencia para comenzar</p>
+            <div class="experience-options">
+                <div class="experience-option" id="geo-ar-option">
+                    <div class="icon">🗺️</div>
+                    <h3>AR Geolocalizada</h3>
+                    <p>Explora Barranco con capas digitales</p>
+                </div>
+                <div class="experience-option" id="mr-gallery-option">
+                    <div class="icon">🎨</div>
+                    <h3>Muestra Digital MR</h3>
+                    <p>Obras digitales en espacios físicos</p>
+                </div>
+                <div class="experience-option" id="vr-immersive-option">
+                    <div class="icon">🥽</div>
+                    <h3>Experiencia VR</h3>
+                    <p>Entorno 3D inmersivo</p>
+                </div>
             </div>
         </div>
         
-        <button id="ar-button">Iniciar Experiencia AR</button>
+        <!-- Mensaje de Estado -->
+        <div id="status-message">Buscando superficies...</div>
+        
+        <!-- Controles AR/VR -->
+        <div class="controls" id="ar-controls">
+            <button class="control-button" id="info-button">i</button>
+            <button class="control-button" id="reset-button">↻</button>
+            <button class="control-button" id="light-button">💡</button>
+            <button class="control-button" id="menu-button">≡</button>
+        </div>
+        
+        <!-- Navegación AR Geolocalizada -->
+        <div id="ar-navigation">
+            <button class="nav-button" id="prev-poi">Anterior</button>
+            <button class="nav-button" id="next-poi">Siguiente</button>
+        </div>
+        
+        <!-- Panel de Accesibilidad -->
+        <div id="accessibility-panel">
+            <button class="accessibility-button" id="toggle-audio" title="Activar/Desactivar Audio">🔊</button>
+            <button class="accessibility-button" id="toggle-subtitles" title="Activar/Desactivar Subtítulos">📝</button>
+            <button class="accessibility-button" id="high-contrast" title="Alto Contraste">👁️</button>
+            <button class="accessibility-button" id="text-size" title="Cambiar Tamaño de Texto">Aa</button>
+            <button class="accessibility-button" id="language-select" title="Cambiar Idioma">🌐</button>
+        </div>
+        
+        <!-- Panel de Información -->
+        <div id="info-panel">
+            <button class="close-button">×</button>
+            <h2>Sobre BulboXR</h2>
+            <p>BulboXR es una plataforma que integra experiencias de realidad aumentada, realidad mixta y realidad virtual accesibles desde cualquier dispositivo móvil sin necesidad de aplicaciones adicionales.</p>
+            <p>Desarrollado para Casa Bulbo en Barranco, Lima, este proyecto busca democratizar el acceso a contenidos XR desde objetos físicos cotidianos como una postal, activando experiencias en contextos culturales urbanos y descentralizados.</p>
+            <h3>Instrucciones</h3>
+            <p>1. <strong>AR Geolocalizada:</strong> Explora el distrito de Barranco con capas digitales superpuestas en ubicaciones específicas. Utiliza los controles de navegación para moverte entre puntos de interés.</p>
+            <p>2. <strong>Muestra Digital MR:</strong> Visualiza obras digitales tridimensionales en tu espacio físico. Puedes colocarlas en superficies detectadas y explorarlas desde diferentes ángulos.</p>
+            <p>3. <strong>Experiencia VR:</strong> Sumérgete en un entorno virtual inmersivo. Compatible con visores VR o directamente desde tu navegador móvil en modo inmersivo.</p>
+        </div>
+        
+        <!-- Panel de POI (Punto de Interés) -->
+        <div class="poi-panel" id="poi-panel">
+            <div class="poi-title">Nombre del Punto de Interés</div>
+            <div class="poi-description">Descripción detallada del punto de interés con contexto histórico y cultural.</div>
+            <div class="poi-actions">
+                <button class="poi-button" id="poi-more">Más Info</button>
+                <button class="poi-button" id="poi-ar">Ver en AR</button>
+                <button class="poi-button" id="poi-close">Cerrar</button>
+            </div>
+        </div>
     </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
+    
+    <script type="module">
+        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
+        import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/ARButton.js';
+        
+        // Intentar importar jsQR para escaneo de códigos QR
+        let jsQR;
+        try {
+            // Si jsQR está disponible como módulo
+            import('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js')
+                .then(module => {
+                    jsQR = module.default;
+                    console.log('jsQR cargado correctamente');
+                })
+                .catch(err => {
+                    console.warn('Error cargando jsQR como módulo:', err);
+                    // Cargar como script global
+                    loadJsQRScript();
+                });
+        } catch (e) {
+            console.warn('Error importando jsQR:', e);
+            // Fallback: cargar como script global
+            loadJsQRScript();
+        }
+        
+        function loadJsQRScript() {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+            script.onload = () => {
+                jsQR = window.jsQR;
+                console.log('jsQR cargado como script global');
+            };
+            script.onerror = () => {
+                console.error('No se pudo cargar jsQR');
+            };
+            document.head.appendChild(script);
+        }
+        
         // Variables globales
         let container;
         let camera, scene, renderer;
-        let currentModel;
         let controller;
         let reticle;
         let hitTestSource = null;
         let hitTestSourceRequested = false;
-        let models = {};
-        let placedObject = null;
-        let isARSupported = false;
-        let sessionActive = false;
-
+        
+        // Modelos y objetos 3D
+        let models = {
+            sculptures: [],
+            poiIndicators: [],
+            menuPanels: []
+        };
+        let placedObjects = [];
+        
+        // Estado de la aplicación
+        let appState = {
+            initialized: false,
+            currentExperience: null,
+            qrDetected: false,
+            isModelPlaced: false,
+            isMenuVisible: false,
+            userLocation: null,
+            selectedPOI: null,
+            currentPOIIndex: 0,
+            arSessionActive: false,
+            vrSessionActive: false,
+            audioEnabled: true,
+            subtitlesEnabled: false,
+            highContrastEnabled: false,
+            textSizeIndex: 0, // 0: normal, 1: large, 2: larger
+            currentLanguage: 'es',
+            lightIntensity: 1.0
+        };
+        
+        // Referencias a elementos UI
+        const loadingScreen = document.getElementById('loading-screen');
+        const loadingProgress = document.getElementById('loading-progress');
+        const loadingBarFill = document.getElementById('loading-bar-fill');
+        const scanQrButton = document.getElementById('scan-qr-button');
+        const skipScanButton = document.getElementById('skip-scan-button');
+        const qrScanner = document.getElementById('qr-scanner');
+        const qrScannerVideo = document.getElementById('qr-scanner-video');
+        const cancelScanButton = document.getElementById('cancel-scan-button');
+        const experienceMenu = document.getElementById('experience-menu');
+        const geoArOption = document.getElementById('geo-ar-option');
+        const mrGalleryOption = document.getElementById('mr-gallery-option');
+        const vrImmersiveOption = document.getElementById('vr-immersive-option');
         const statusMessage = document.getElementById('status-message');
-        const controlPanel = document.getElementById('control-panel');
-        const arButton = document.getElementById('ar-button');
-
-        // Inicialización
+        const arControls = document.getElementById('ar-controls');
+        const infoButton = document.getElementById('info-button');
+        const resetButton = document.getElementById('reset-button');
+        const lightButton = document.getElementById('light-button');
+        const menuButton = document.getElementById('menu-button');
+        const arNavigation = document.getElementById('ar-navigation');
+        const prevPoiButton = document.getElementById('prev-poi');
+        const nextPoiButton = document.getElementById('next-poi');
+        const accessibilityPanel = document.getElementById('accessibility-panel');
+        const toggleAudioButton = document.getElementById('toggle-audio');
+        const toggleSubtitlesButton = document.getElementById('toggle-subtitles');
+        const highContrastButton = document.getElementById('high-contrast');
+        const textSizeButton = document.getElementById('text-size');
+        const languageSelectButton = document.getElementById('language-select');
+        const infoPanel = document.getElementById('info-panel');
+        const closeInfoButton = document.querySelector('.close-button');
+        const poiPanel = document.getElementById('poi-panel');
+        const poiMoreButton = document.getElementById('poi-more');
+        const poiArButton = document.getElementById('poi-ar');
+        const poiCloseButton = document.getElementById('poi-close');
+        
+        // Elementos de iluminación
+        let ambientLight, directionalLight, backLight, bottomLight;
+        
+        // Datos de puntos de interés (POIs) en Barranco
+        const barrancoPoints = [
+            {
+                id: 'puente-suspiros',
+                name: 'Puente de los Suspiros',
+                lat: -12.149429,
+                lng: -77.022350,
+                altitude: 0,
+                distance: null, // Se calculará en tiempo real
+                content: {
+                    type: 'info',
+                    title: 'Puente de los Suspiros',
+                    description: 'Icónico puente construido en 1876, es uno de los símbolos más reconocidos de Barranco. Su nombre se debe a la tradición romántica según la cual, al cruzarlo por primera vez conteniendo la respiración, se concede un deseo.',
+                    media: 'puente_suspiros_animation.glb',
+                    thumbnail: 'puente_thumbnail.jpg'
+                }
+            },
+            {
+                id: 'museo-mario-testino',
+                name: 'MATE - Museo Mario Testino',
+                lat: -12.145700,
+                lng: -77.022117,
+                altitude: 0,
+                distance: null,
+                content: {
+                    type: 'gallery',
+                    title: 'Museo de Arte de Mario Testino',
+                    description: 'Fundado por el fotógrafo peruano Mario Testino, MATE es un museo dedicado a exhibir arte contemporáneo y fotografía, con especial énfasis en el trabajo de Testino y otros artistas peruanos e internacionales.',
+                    artworks: ['obra1.glb', 'obra2.glb', 'obra3.glb'],
+                    thumbnail: 'mate_thumbnail.jpg'
+                }
+            },
+            {
+                id: 'bajada-banos',
+                name: 'Bajada de los Baños',
+                lat: -12.149085,
+                lng: -77.023378,
+                altitude: 0,
+                distance: null,
+                content: {
+                    type: 'historical',
+                    title: 'Bajada de los Baños',
+                    description: 'Pasaje histórico que desciende desde el malecón hasta la playa. Originalmente era el camino que llevaba a los baños públicos que existían en la playa de Barranco durante la época colonial.',
+                    media: 'bajada_animation.glb',
+                    thumbnail: 'bajada_thumbnail.jpg'
+                }
+            },
+            {
+                id: 'biblioteca-gonzalez-prada',
+                name: 'Biblioteca Manuel González Prada',
+                lat: -12.147213,
+                lng: -77.021532,
+                altitude: 0,
+                distance: null,
+                content: {
+                    type: 'cultural',
+                    title: 'Biblioteca Manuel González Prada',
+                    description: 'Importante biblioteca pública inaugurada en 1922, nombrada en honor al escritor peruano Manuel González Prada. Alberga una valiosa colección de libros y documentos históricos.',
+                    media: 'biblioteca_animation.glb',
+                    thumbnail: 'biblioteca_thumbnail.jpg'
+                }
+            },
+            {
+                id: 'mirador-catalina-recavarren',
+                name: 'Mirador Catalina Recavarren',
+                lat: -12.148578,
+                lng: -77.021825,
+                altitude: 0,
+                distance: null,
+                content: {
+                    type: 'viewpoint',
+                    title: 'Mirador Catalina Recavarren',
+                    description: 'Ubicado en el Malecón de Barranco, este mirador ofrece vistas panorámicas del mar y los acantilados. Es un punto perfecto para contemplar el atardecer.',
+                    media: 'mirador_animation.glb',
+                    thumbnail: 'mirador_thumbnail.jpg'
+                }
+            }
+        ];
+        
+        // Inicializar aplicación
         init();
-
-        function init() {
-            container = document.getElementById('container');
-
-            // Configuración de la escena
+        
+        async function init() {
+            console.log('Inicializando BulboXR...');
+            
+            // Crear contenedor principal
+            container = document.createElement('div');
+            document.body.appendChild(container);
+            
+            // Inicializar Three.js
+            setupThreeJS();
+            
+            // Detectar capacidades del dispositivo
+            const deviceCapabilities = await detectDeviceCapabilities();
+            
+            // Configurar UI inicial
+            setupUIEvents();
+            
+            // Configurar accesibilidad
+            setupAccessibility();
+            
+            // Detectar idioma del navegador
+            setupLocalization();
+            
+            // Cargar recursos iniciales
+            loadInitialResources();
+            
+            // Configurar sistema de análisis
+            setupAnalytics();
+            
+            // Registrar Service Worker para capacidades offline
+            registerServiceWorker();
+            
+            // Marcar como inicializado
+            appState.initialized = true;
+        }
+        
+        function setupThreeJS() {
+            // Inicializar escena
             scene = new THREE.Scene();
-
-            // Configuración de la cámara
+            
+            // Inicializar cámara
             camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-
-            // Luz ambiental
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-
-            // Luz direccional
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(0, 5, 0);
-            scene.add(directionalLight);
-
-            // Configuración del renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            
+            // Configurar luces
+            setupLighting();
+            
+            // Inicializar el renderer
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true
+            });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
             container.appendChild(renderer.domElement);
-
-            // Crear modelos predefinidos
-            createModels();
-
+            
             // Crear reticle (indicador de posición)
-            createReticle();
-
-            // Verificar soporte para WebXR
-            if ('xr' in navigator) {
-                navigator.xr.isSessionSupported('immersive-ar')
-                    .then((supported) => {
-                        isARSupported = supported;
-                        if (supported) {
-                            statusMessage.textContent = 'WebXR AR soportado - Pulsa el botón para iniciar';
-                            arButton.disabled = false;
-                        } else {
-                            statusMessage.textContent = 'WebXR AR no soportado en este dispositivo/navegador';
-                            arButton.disabled = true;
-                        }
-                    });
-            } else {
-                statusMessage.textContent = 'WebXR no soportado en este navegador';
-                arButton.disabled = true;
-            }
-
-            // Event listeners
-            window.addEventListener('resize', onWindowResize);
-            arButton.addEventListener('click', onARButtonClick);
-
-            // Configurar controles UI
-            setupUIControls();
-        }
-
-        function createModels() {
-            // Cubo
-            const cubeGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-            const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-            models.cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-
-            // Esfera
-            const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32);
-            const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-            models.sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-
-            // Toroide
-            const torusGeometry = new THREE.TorusGeometry(0.15, 0.05, 16, 32);
-            const torusMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff });
-            models.torus = new THREE.Mesh(torusGeometry, torusMaterial);
-
-            // Establecer modelo predeterminado
-            currentModel = 'cube';
-        }
-
-        function createReticle() {
-            const geometry = new THREE.RingGeometry(0.03, 0.04, 32).rotateX(-Math.PI / 2);
-            const material = new THREE.MeshBasicMaterial();
-            reticle = new THREE.Mesh(geometry, material);
+            reticle = new THREE.Mesh(
+                new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
+                new THREE.MeshBasicMaterial()
+            );
             reticle.matrixAutoUpdate = false;
             reticle.visible = false;
             scene.add(reticle);
-        }
-
-        function setupUIControls() {
-            // Controles de escala
-            const scaleSlider = document.getElementById('scale-slider');
-            const scaleValue = document.getElementById('scale-value');
-            scaleSlider.addEventListener('input', (e) => {
-                if (placedObject) {
-                    const scale = parseFloat(e.target.value);
-                    placedObject.scale.setScalar(scale);
-                    scaleValue.textContent = scale.toFixed(1);
-                }
-            });
-
-            // Controles de rotación
-            const rotateX = document.getElementById('rotate-x');
-            const rotateXValue = document.getElementById('rotate-x-value');
-            rotateX.addEventListener('input', (e) => {
-                if (placedObject) {
-                    const angle = parseFloat(e.target.value);
-                    placedObject.rotation.x = angle * (Math.PI / 180);
-                    rotateXValue.textContent = `${angle}°`;
-                }
-            });
-
-            const rotateY = document.getElementById('rotate-y');
-            const rotateYValue = document.getElementById('rotate-y-value');
-            rotateY.addEventListener('input', (e) => {
-                if (placedObject) {
-                    const angle = parseFloat(e.target.value);
-                    placedObject.rotation.y = angle * (Math.PI / 180);
-                    rotateYValue.textContent = `${angle}°`;
-                }
-            });
-
-            const rotateZ = document.getElementById('rotate-z');
-            const rotateZValue = document.getElementById('rotate-z-value');
-            rotateZ.addEventListener('input', (e) => {
-                if (placedObject) {
-                    const angle = parseFloat(e.target.value);
-                    placedObject.rotation.z = angle * (Math.PI / 180);
-                    rotateZValue.textContent = `${angle}°`;
-                }
-            });
-
-            // Selector de modelos
-            const modelOptions = document.querySelectorAll('.model-option');
-            modelOptions.forEach(option => {
-                option.addEventListener('click', (e) => {
-                    const modelName = e.target.dataset.model;
-                    currentModel = modelName;
-                    
-                    // Actualizar estado activo
-                    modelOptions.forEach(opt => opt.classList.remove('active'));
-                    e.target.classList.add('active');
-                    
-                    // Si ya hay un objeto colocado, cambiarlo
-                    if (placedObject) {
-                        scene.remove(placedObject);
-                        
-                        placedObject = models[modelName].clone();
-                        
-                        // Mantener escala y rotación anterior
-                        const scaleValue = parseFloat(document.getElementById('scale-slider').value);
-                        placedObject.scale.setScalar(scaleValue);
-                        
-                        placedObject.rotation.x = parseFloat(document.getElementById('rotate-x').value) * (Math.PI / 180);
-                        placedObject.rotation.y = parseFloat(document.getElementById('rotate-y').value) * (Math.PI / 180);
-                        placedObject.rotation.z = parseFloat(document.getElementById('rotate-z').value) * (Math.PI / 180);
-                        
-                        scene.add(placedObject);
-                    }
-                });
-            });
-        }
-
-        function onARButtonClick() {
-            if (!isARSupported) return;
             
-            if (!sessionActive) {
-                // Iniciar sesión AR
-                navigator.xr.requestSession('immersive-ar', {
-                    requiredFeatures: ['hit-test'],
-                    optionalFeatures: ['dom-overlay'],
-                    domOverlay: { root: document.getElementById('ui') }
-                }).then(onSessionStarted);
+            // Evento de resize
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        function setupLighting() {
+            // Luz ambiental para iluminación general
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            // Luz direccional principal
+            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0.5, 1, 0.25);
+            scene.add(directionalLight);
+            
+            // Luz desde atrás para contorno
+            backLight = new THREE.DirectionalLight(0xffeecc, 0.4);
+            backLight.position.set(0, 0.5, -1);
+            scene.add(backLight);
+            
+            // Luz desde abajo para efecto dramático
+            bottomLight = new THREE.DirectionalLight(0xccffff, 0.3);
+            bottomLight.position.set(0, -0.5, 0);
+            scene.add(bottomLight);
+        }
+        
+        async function detectDeviceCapabilities() {
+            const capabilities = {
+                hasAR: false,
+                hasVR: false,
+                hasGeolocation: 'geolocation' in navigator,
+                hasTouchScreen: 'ontouchstart' in window,
+                hasGyroscope: false, // Se verificará más adelante
+                deviceType: detectDeviceType(),
+                browserType: detectBrowserType()
+            };
+            
+            // Verificar soporte WebXR
+            if ('xr' in navigator) {
+                try {
+                    capabilities.hasAR = await navigator.xr.isSessionSupported('immersive-ar');
+                } catch (err) {
+                    console.warn('Error verificando soporte AR:', err);
+                }
+                
+                try {
+                    capabilities.hasVR = await navigator.xr.isSessionSupported('immersive-vr');
+                } catch (err) {
+                    console.warn('Error verificando soporte VR:', err);
+                }
+            }
+            
+            // Verificar soporte de giroscopio
+            if (window.DeviceOrientationEvent) {
+                capabilities.hasGyroscope = true;
+            }
+            
+            console.log('Capacidades del dispositivo:', capabilities);
+            return capabilities;
+        }
+        
+        function detectDeviceType() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            
+            if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/i.test(userAgent)) {
+                return 'tablet';
+            } else if (/iphone|ipod|android|blackberry|opera mini|opera mobi|skyfire|maemo|windows phone|palm|iemobile|symbian|symbianos|fennec/i.test(userAgent)) {
+                return 'mobile';
             } else {
-                // Terminar sesión AR
-                renderer.xr.getSession().end();
+                return 'desktop';
             }
         }
-
-        function onSessionStarted(session) {
-            session.addEventListener('end', onSessionEnded);
+        
+        function detectBrowserType() {
+            const userAgent = navigator.userAgent.toLowerCase();
             
-            renderer.xr.setReferenceSpaceType('local');
-            renderer.xr.setSession(session);
-            
-            arButton.textContent = 'Salir de AR';
-            statusMessage.textContent = 'Apunta a una superficie y toca para colocar el objeto';
-            sessionActive = true;
-            
-            session.addEventListener('select', onSelect);
-            
-            animate();
-        }
-
-        function onSessionEnded() {
-            arButton.textContent = 'Iniciar Experiencia AR';
-            statusMessage.textContent = 'AR detenido - Pulsa el botón para reiniciar';
-            controlPanel.style.display = 'none';
-            sessionActive = false;
-            
-            if (placedObject) {
-                scene.remove(placedObject);
-                placedObject = null;
+            if (userAgent.indexOf('chrome') > -1) {
+                return 'chrome';
+            } else if (userAgent.indexOf('safari') > -1) {
+                return 'safari';
+            } else if (userAgent.indexOf('firefox') > -1) {
+                return 'firefox';
+            } else if (userAgent.indexOf('edge') > -1 || userAgent.indexOf('edg') > -1) {
+                return 'edge';
+            } else {
+                return 'other';
             }
-        }
-
-        function onSelect(event) {
-            if (reticle.visible) {
-                if (!placedObject) {
-                    // Primera colocación del objeto
-                    placedObject = models[currentModel].clone();
-                    placedObject.position.setFromMatrixPosition(reticle.matrix);
-                    scene.add(placedObject);
-                    controlPanel.style.display = 'block';
-                    statusMessage.textContent = 'Usa los controles para modificar el objeto';
-                } else {
-                    // Reposicionar objeto existente
-                    placedObject.position.setFromMatrixPosition(reticle.matrix);
-                }
-            }
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        function animate() {
-            renderer.setAnimationLoop(render);
-        }
-
-        function render(timestamp, frame) {
-            if (frame) {
-                const referenceSpace = renderer.xr.getReferenceSpace();
-                const session = renderer.xr.getSession();
-
-                if (hitTestSourceRequested === false) {
-                    session.requestReferenceSpace('viewer').then((referenceSpace) => {
-                        session.requestHitTestSource({ space: referenceSpace })
-                            .then((source) => {
-                                hitTestSource = source;
-                            });
-                    });
-
-                    session.addEventListener('end', () => {
-                        hitTestSourceRequested = false;
-                        hitTestSource = null;
-                    });
-
-                    hitTestSourceRequested = true;
-                }
-
-                if (hitTestSource) {
-                    const hitTestResults = frame.getHitTestResults(hitTestSource);
-
-                    if (hitTestResults.length) {
-                        const hit = hitTestResults[0];
-                        const pose = hit.getPose(referenceSpace);
-
-                        reticle.visible = true;
-                        reticle.matrix.fromArray(pose.transform.matrix);
-                    } else {
-                        reticle.visible = false;
-                    }
-                }
-            }
-
-            renderer.render(scene, camera);
-        }
-    </script>
-</body>
-</html>
